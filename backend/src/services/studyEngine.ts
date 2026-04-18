@@ -158,7 +158,9 @@ function buildFallbackAnswer(subject: Subject, question: string): {
 } {
   const excerpt = subject.files.map((file) => file.content).join("\n\n").slice(0, 520);
   return {
-    answer: `Based on the uploaded notes for ${subject.name}, the strongest local answer to "${question}" is derived from the current file content: ${excerpt || "No usable note content was extracted yet."}`,
+    answer: excerpt
+      ? `(AI Fallback) We couldn't reach the Gemini API to synthesize a response, but based on your notes for ${subject.name}, here is the most relevant unformatted excerpt we found:\n\n"...${excerpt}..."`
+      : `(AI Fallback) The Gemini API is currently unavailable, and no usable text could be extracted from your notes to answer "${question}".`,
     citations: subject.files.slice(0, 2).map((file, index) => ({
       fileName: file.fileName,
       page: file.pageCount ? Math.min(file.pageCount, 1) : 1,
@@ -234,15 +236,19 @@ export async function summarizeNote(fileName: string, content: string): Promise<
       if (response?.summary) {
         return response.summary;
       }
-    } catch {
-      // Fall back below.
+    } catch (error) {
+      console.error("[StudyEngine] Summarization Gemini API error:", error instanceof Error ? error.message : error);
     }
   }
 
   return content.replace(/\s+/g, " ").trim().slice(0, 220) || "Uploaded note summary unavailable.";
 }
 
-export async function answerQuestion(subject: Subject, question: string): Promise<{
+export async function answerQuestion(
+  subject: Subject,
+  question: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>
+): Promise<{
   answer: string;
   citations: Citation[];
   confidence: "High" | "Medium" | "Low";
@@ -265,18 +271,24 @@ export async function answerQuestion(subject: Subject, question: string): Promis
 
   if (modelUsed) {
     try {
+      // Format history natively as text to make the prompt fully semantic
+      const historyContext = history && history.length > 0
+        ? `[Previous Conversation Context]\n${history.map((h) => `${h.role === "user" ? "User" : "Assistant"}: ${h.content}`).join("\n\n")}\n\n`
+        : "";
+
       const response = await generateJson<{
         answer: string;
         confidence: "High" | "Medium" | "Low";
         evidence: string[];
       }>({
-        systemInstruction: "You are a grounded study copilot. Answer only from the uploaded note context and stay concise.",
+        systemInstruction: "You are a grounded study copilot. Answer only from the uploaded note context and stay concise. If the user refers to the conversation history, use it strictly as context, but evidence must still come from the notes.",
         prompt: [
           `Subject: ${subject.name}`,
-          `Question: ${question}`,
+          historyContext.trim(),
+          `[Current Request]\nQuestion: ${question}`,
           "Use only the context below:",
           retrieved.context
-        ].join("\n\n"),
+        ].filter(Boolean).join("\n\n"),
         schema: answerSchema(),
         temperature: 0.25
       });
@@ -290,8 +302,8 @@ export async function answerQuestion(subject: Subject, question: string): Promis
           found: true
         };
       }
-    } catch {
-      // Fall back below.
+    } catch (error) {
+      console.error("[StudyEngine] Answer Generation Gemini API error:", error instanceof Error ? error.message : error);
     }
   }
 

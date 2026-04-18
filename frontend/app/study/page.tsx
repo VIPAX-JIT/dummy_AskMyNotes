@@ -229,15 +229,25 @@ export default function StudyPage() {
       content: question.trim()
     };
 
+    const previousMessages = chatState[selectedId] ?? [];
+    const historyPayload = previousMessages.slice(-4).map((msg) => ({
+      role: msg.role === "user" ? "user" : "assistant",
+      content: msg.content
+    }));
+
     setChatState((prev) => ({
       ...prev,
-      [selectedId]: [...(prev[selectedId] ?? []), userMessage]
+      [selectedId]: [...previousMessages, userMessage]
     }));
 
     try {
       const data = await api<AnswerState & { found: boolean }>("/api/ask", {
         method: "POST",
-        body: JSON.stringify({ subjectId: selectedId, question })
+        body: JSON.stringify({
+          subjectId: selectedId,
+          question,
+          history: historyPayload
+        })
       });
 
       const assistantMessage: ChatMessage = {

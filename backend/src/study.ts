@@ -21,7 +21,11 @@ const uploadJsonSchema = z.object({
 
 const askSchema = z.object({
   subjectId: z.string().min(1),
-  question: z.string().min(1)
+  question: z.string().min(1),
+  history: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string()
+  })).optional()
 });
 
 interface UploadedFilePayload {
@@ -251,7 +255,7 @@ export async function askStudyQuestion(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const result = await answerQuestion(subject, parsed.data.question);
+  const result = await answerQuestion(subject, parsed.data.question, parsed.data.history);
   res.status(200).json(result);
 }
 

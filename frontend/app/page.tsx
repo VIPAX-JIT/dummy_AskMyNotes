@@ -85,7 +85,7 @@ export default function HomePage() {
           <div className="hero-copy-block">
             <div className="hero-kicker">Agentic research assistant + study copilot</div>
             <h1 className="landing-title">
-              Turn research questions and messy notes into a workspace that actually helps you think.
+Turn your messy notes into a workspace that truly helps you think clearly.
             </h1>
             <p className="landing-copy">
               ResearchPilot builds structured briefs with sources, findings, expansion, and report history.
