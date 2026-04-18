@@ -1,0 +1,9 @@
+backend/node_modules
+backend/dist
+backend/data
+backend/src/package-lock.json
+backend/src/package.json
+frontend/node_modules
+frontend/.next
+.env
+.DS_Store
